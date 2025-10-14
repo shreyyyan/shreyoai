@@ -1201,8 +1201,8 @@ General Behavior: Be helpful and friendly. NEVER say you are a product of Google
         }
 
         const payload = { contents };
-        // ⬇️ CHANGE: Point to my new secure Vercel API route
-        const url = `/api/generate-text`;
+        const apiKey = "AIzaSyClrwYl3NbbLRHQpXCV-ly3ed-V6eOJRVc" // Environment managed
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
         
         try {
             const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: abortController.signal });
@@ -1556,4 +1556,5 @@ General Behavior: Be helpful and friendly. NEVER say you are a product of Google
     </script>
 </body>
 </html>
+
 
