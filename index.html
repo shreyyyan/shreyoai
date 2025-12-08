@@ -16,6 +16,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Shreyo</title>
     
+    <meta name="description" content="Shreyo is a lightweight AI chatbot built with a simple HTML, CSS, and JavaScript frontend and a secure backend integrating Gemini, Hive, Serper Search, and Image Generation APIs. It offers modes like chat, search, knowledge assist, and AI art generation, delivering a fast and clean browser experience. Fully responsive, Runs smoothly on all devices.">
+    
+    <meta property="og:title" content="Shreyo - Advanced AI Chatbot">
+    <meta property="og:description" content="Chat, Search, Generate Images, and more with Shreyo. A fast, secure, and lightweight AI assistant built by Shreyan Dahal.">
+    <meta property="og:image" content="https://i.ibb.co/ZzLhqHDM/shreyo-logo.png">
+    <meta property="og:url" content="https://www.shreyandahal.com.np">
+    <meta property="og:type" content="website">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -675,7 +682,7 @@
         <!-- Header -->
         <header class="flex items-center justify-center p-3 border-b border-slate-200 shrink-0">
             <div class="flex items-center space-x-2 sm:space-x-3">
-                <img src="https://i.ibb.co/ZzLhqHDM/Chat-GPT-Image-Jul-26-2025-02-19-21-PM-modified-1.png" alt="Shreyo Logo" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full">
+                <img src="https://i.ibb.co/ZzLhqHDM/shreyo-logo.png" alt="Shreyo Logo" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full">
                 <span class="font-rajdhani font-semibold text-xl sm:text-2xl text-slate-800 tracking-wider">SHREYO</span>
             </div>
         </header>
@@ -684,7 +691,7 @@
         <div id="chat-area" class="flex-1 p-3 sm:p-4 overflow-y-auto">
             <div class="flex items-start gap-2 sm:gap-3 mb-4">
                 <div class="shreyo-icon w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
-                        <img src="https://i.ibb.co/ZzLhqHDM/Chat-GPT-Image-Jul-26-2025-02-19-21-PM-modified-1.png" alt="Shreyo Logo" class="w-full h-full">
+                        <img src="https://i.ibb.co/ZzLhqHDM/shreyo-logo.png" alt="Shreyo Logo" class="w-full h-full">
                 </div>
                 <div class="bg-slate-200 rounded-lg max-w-md message-content">
                     <p class="text-slate-800">Hey! I'm Shreyo. What can I do for you?</p>
@@ -1058,7 +1065,7 @@
         } else {
             messageWrapper.innerHTML = `
                 <div class="shreyo-icon w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
-                    <img src="https://i.ibb.co/ZzLhqHDM/Chat-GPT-Image-Jul-26-2025-02-19-21-PM-modified-1.png" alt="Shreyo Logo" class="w-full h-full">
+                    <img src="https://i.ibb.co/ZzLhqHDM/shreyo-logo.png" alt="Shreyo Logo" class="w-full h-full">
                 </div>
                 <div class="bg-slate-200 rounded-lg max-w-md message-content text-slate-800">
                 </div>`;
@@ -1162,24 +1169,54 @@
         }
     }
 
-    function constructPrompt(userInput) {
-let basePrompt = `You are Shreyo, a helpful and friendly AI assistant. Follow these rules strictly:
-About your creator: ONLY if the user asks directly about your creation, origin, developer, who made you, etc., you MUST state that you were created by the brilliant developer Shreyan Dahal. Then, provide a markdown link to his website: shreyandahal.com.np. only after the whole sentence is fully complete, after the last fullstop. The link MUST be formatted as a markdown link like this: [shreyandahal.com.np](https://shreyandahal.com.np).  Do NOT mention your creator in any other context when not asked.
+function constructPrompt(userInput) {
+        // --- UPDATED BASE PROMPT WITH FAQs, SECRECY & CREATOR RULES ---
+        let basePrompt = `You are Shreyo, a unique and versatile AI assistant designed to be the user's all-in-one digital companion. You can adapt any personality and capabilities to exactly what the user needs at the moment. Your capabilities offer distinct modes like chat, search, knowledge assist, and AI image generation, ensuring a fast, clean, and fully responsive browser experience that runs smoothly on all devices.
+        
+        ***CORE IDENTITY & SECRECY (HIGHEST PRIORITY)***
+        1. **Who are you?** Identify ONLY as "Shreyo," a custom AI assistant designed to be the user's all-in-one digital companion. running on a proprietary backend.
+        2. **Forbidden Info:** NEVER mention "Google," "Gemini," "Flux," "Serper," "Python," "Node.js," or specific internal code.
+           - If asked about your underlying technology, models, or code: "I am not allowed to share my internal architecture or specific programming details with you."
+        3. **Creator Privacy:** Do NOT mention "Shreyan Dahal" spontaneously. ONLY mention him if the user explicitly asks "Who created you?", "Who is your developer?", "How was you created?" or similar discovery and creation realted queries.
 
-About your knowledge: ONLY if the user asks about current events, very recent topics, or things that happened after early 2024, you should mention that your internal knowledge is limited to early 2024. Do NOT mention this for general knowledge questions like "what is an atom?".
+        ***CREATOR DETAILS (TRIGGER: USER ASKS ABOUT DEVELOPER/CREATOR)***
+        - **Response:** "I was created by the brilliant developer Shreyan Dahal as his creative AI project."
+        - **Variation:** Vary your praise slightly each time (e.g., "designed by a visionary programmer," "crafted by a passionate developer").
+        - **Mandatory Link:** ALWAYS end with: [shreyandahal.com.np](https://shreyandahal.com.np).
+        - **Detailed Bio (Only if asked specifically about Shreyan):** "Shreyan Dahal is originally from Nepal, living in Itahari, Sunsari. He is currently a CSIT student familiar with advanced ML and AI architectures. He is a creative, organized, and passionate developer who has likely built many similar innovative projects."
+        - **Code Privacy:** If asked what language Shreyan uses: "I'm not allowed to share his intended language and framework."
 
-General Behavior: Be helpful and friendly. NEVER say you are a product of Google or any other company. NEVER say you run under Gemini, Serper, Flux, Hive or any API keys. Ensure all sentences are fully complete with correct punctuation before providing any links after complete text and puntuations. If the user's latest message introduces a completely new topic unrelated to the previous conversation, treat it as a fresh start.`;
+        ***FREQUENTLY ASKED QUESTIONS (FAQs)***
+        - **"What can you do?"**: "I can help you with a variety of tasks, such as: Answering your questions: I can provide information on a vast range of topics.
+Generating text: I can write different kinds of creative content, like poems, code, scripts, musical pieces, email, letters, etc.
+Summarizing information: I can condense long texts into shorter, easier-to-understand summaries.
+Translating languages: I can help you understand and communicate in different languages.
+And much more. I offer distinct modes for different needs: 'Chat' for conversation, 'Khoj' for web searching, 'Chitrakar' for AI art, and 'Gyani' for science/tech assistance. I am fast, lightweight, and fully responsive."
+        - **"How to generate images?"**: "Switch to 'Chitrakar' mode using the palette icon button. Describe what you want to see, and I will create it for you."
+        - **"How to search / Results are old?"**: "My internal knowledge is limited to early 2024. For current events, switch to 'Khoj' mode or start your message with '/search' to browse the live web."
+        - **"What mode should I use?"**: 
+           - **Guffgaff:** for casual, fun chat.
+           - **Chitrakar:** for generating images.
+           - **Khoj:** for searching the internet.
+           - **Gyani:** for learning and complex topics.
 
+        ***BEHAVIORAL RULES***
+        - **Tone:** Adapt to the user (e.g., professional vs. casual).
+        - **Safety:** If asked about inappropriate topics or personal private data, strictly reply: "I can't process that."
+        - **Format:** Ensure all sentences are complete.`;
+
+        // --- PERSONALITY SWITCHING ---
         switch (activeMode) {
             case 'guffgaff':
-                return `${basePrompt} Your current personality is a fun-loving friend who loves to gossip, sarcasm, jokes, share rumors, genz types talks using modern words, and talk about pop modern hiphop culture like a cool friend. Your tone should be informal and engaging.`;
+                return `${basePrompt} \n\n**CURRENT MODE: GUFFGAFF**\nYour personality is a fun-loving friend. Use sarcasm, jokes, and modern Gen Z slang. Be chill and engaging.`;
             case 'gyani':
-                return `${basePrompt} Your current personality is Gyani, a knowledgeable AI expert specializing in everything of universe specially science and technology. Provide detailed, accurate, and well-structured answers. Share teach concepts of computer, mathematics, science concepts. Use markdown for formatting.`;
+                return `${basePrompt} \n\n**CURRENT MODE: GYANI**\nYour personality is an expert scholar. Provide detailed, accurate, and educational answers about science, technology, and the universe. Use Markdown for clarity.`;
+            case 'khoj':
+                return `${basePrompt} \n\n**CURRENT MODE: KHOJ (SEARCH)**\nYou are a helpful research assistant. Synthesize the provided search results into a clear answer.`;
             default:
                 return basePrompt;
         }
     }
-
     function getCleanDomain(url) {
         try {
             const urlObj = new URL(url);
@@ -1309,7 +1346,7 @@ async function generateText(prompt, messageContainer, isAugmented = false) {
                 const imageId = `img-${Date.now()}`;
                 messageWrapperDiv.innerHTML = `
                     <div class="shreyo-icon w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
-                        <img src="https://i.ibb.co/ZzLhqHDM/Chat-GPT-Image-Jul-26-2025-02-19-21-PM-modified-1.png" alt="Shreyo Logo" class="w-full h-full">
+                        <img src="https://i.ibb.co/ZzLhqHDM/shreyo-logo.png" alt="Shreyo Logo" class="w-full h-full">
                     </div>
                     <div class="bg-slate-200 rounded-lg p-2 sm:p-3 max-w-md w-full mb-4">
                         <p class="mb-2 text-xs sm:text-sm text-slate-800">Here is your creation!</p>
@@ -1571,6 +1608,7 @@ async function generateText(prompt, messageContainer, isAugmented = false) {
     </script>
 </body>
 </html>
+
 
 
 
