@@ -1147,35 +1147,55 @@
         return data.organic || [];
     }
 
-async function performSearchAndGenerate(query, messageContainer) {
-    try {
-        messageContainer.innerHTML = '<span class="italic">Searching the web...</span>';
-        const searchResults = await performWebSearch(query);
+// Handle the RAG (Retrieval-Augmented Generation) flow
+    async function performSearchAndGenerate(query, messageContainer) {
+        try {
+            messageContainer.innerHTML = '<span class="italic">Searching the web...</span>';
+            const searchResults = await performWebSearch(query);
 
-        if (searchResults.length === 0) {
-            messageContainer.innerHTML = "I couldn't find relevant info. Answering from memory.";
+            if (searchResults.length === 0) {
+                messageContainer.innerHTML = "I couldn't find any relevant information. I'll answer based on my existing knowledge.";
+                // Fallback to normal generation
+                await generateText(query, messageContainer);
+                return;
+            }
+            
+            // 1. Prepare data for the AI to read
+            const formattedResults = searchResults.slice(0, 5).map(r => `Snippet: ${r.snippet}\nSource: ${r.link}`).join('\n\n');
+            
+            // 2. Prepare LINKS specifically for the UI (This restores the Favicon Cards!)
+            // We format them as Markdown links [Domain](URL) so generateText picks them up
+            const sourceLinks = searchResults.slice(0, 5).map(r => `[${getCleanDomain(r.link)}](${r.link})`).join('\n\n');
+
+            // 3. Construct the "Force-Reply" Prompt
+            const finalPrompt = `You are Shreyo. Answer this question using the search results below.
+            Question: "${query}"
+            
+            Structure your answer clearly.
+            
+            IMPORTANT: After your main answer, you MUST list the sources exactly as shown below:
+            
+            ### Sources:
+            ${sourceLinks}
+            
+            ---SEARCH DATA---
+            ${formattedResults}`;
+            
+            // 4. Save Search Context to Memory (Critical)
+            chatHistory.push({ 
+                role: "user", 
+                parts: [{ text: `User searched for "${query}".\nResults found: ${formattedResults}` }] 
+            });
+
+            // 5. Generate Response (passing 'true' so we don't double-save the prompt)
+            await generateText(finalPrompt, messageContainer, true);
+
+        } catch (error) {
+            console.error("Search failed:", error);
+            messageContainer.innerHTML = 'Search unavailable. Trying normal chat...';
             await generateText(query, messageContainer);
-            return;
         }
-
-        const formattedResults = searchResults.slice(0, 5).map(r => `Snippet: ${r.snippet}\nSource: ${r.link}`).join('\n\n');
-        const finalPrompt = `Based on these search results, answer: "${query}"\n\nData:\n${formattedResults}`;
-
-        // --- FIX: Save the Search Context to Memory ---
-        chatHistory.push({ 
-            role: "user", 
-            parts: [{ text: `System Context: User searched for "${query}".\nResults: ${formattedResults}\n\nUser Question: ${query}` }] 
-        });
-
-        // We pass 'true' so generateText knows we just updated the history manually
-        await generateText(finalPrompt, messageContainer, true);
-
-    } catch (error) {
-        console.error("Search failed:", error);
-        messageContainer.innerHTML = 'Search unavailable. Trying normal chat...';
-        await generateText(query, messageContainer);
     }
-}
 
 function constructPrompt(userInput) {
         // --- FINAL MERGED SMART PROMPT ---
@@ -1626,6 +1646,7 @@ function constructPrompt(userInput) {
     </script>
 </body>
 </html>
+
 
 
 
