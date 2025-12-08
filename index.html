@@ -985,18 +985,19 @@
         sendTooltipText.textContent = generating ? 'Please Wait' : 'Send';
     }
 
+
     // Switches the active mode of the chatbot
     function switchMode(newMode, event) {
-        if (event) event.preventDefault(); // Prevent default touch behaviors
+        if (event) event.preventDefault();
         
         const wasChitrakar = activeMode === 'chitrakar';
         const isSameMode = activeMode === newMode;
         
         activeMode = isSameMode ? 'general' : newMode;
 
+        // --- MEMORY FIX: Removed "chatHistory = []" so memory persists across modes ---
         if (!isSameMode) {
-            chatHistory = []; // Clear history when switching to a NEW mode
-            chatInput.focus(); // Only focus when switching TO a new mode
+             chatInput.focus();
         }
         
         isSearchActive = (activeMode === 'khoj');
@@ -1020,7 +1021,7 @@
             chitrakarSettingsContainer.classList.add('hidden');
             chitrakarUI.classList.add('hidden'); 
             chitrakarSettingsBtn.classList.remove('active');
-            if (wasChitrakar || isSameMode) { // Restore buttons if mode changes from chitrakar OR is toggled off
+            if (wasChitrakar || isSameMode) { 
                 for (const mode in modeButtons) {
                     const buttonTooltip = modeButtons[mode].parentElement;
                     buttonTooltip.classList.remove('hidden');
@@ -1031,6 +1032,18 @@
             }
         }
         
+        const placeholders = {
+            general: 'Start a conversation... type / for search',
+            guffgaff: 'Ready for some gossip?',
+            chitrakar: 'Describe the image to create...',
+            khoj: 'Searching the web...',
+            gyani: 'Ask a science or tech question...',
+        };
+
+        chatInput.placeholder = placeholders[activeMode] || 'Start a conversation...';
+        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+        updateSearchPill();
+    }
         const placeholders = {
             general: 'Start a conversation... type / for search',
             guffgaff: 'Ready for some gossip?',
@@ -1170,54 +1183,53 @@
     }
 
 function constructPrompt(userInput) {
-        // --- UPDATED BASE PROMPT WITH FAQs, SECRECY & CREATOR RULES ---
-        let basePrompt = `You are Shreyo, a unique and versatile AI assistant designed to be the user's all-in-one digital companion. You can adapt any personality and capabilities to exactly what the user needs at the moment. 
-        
-        ***CORE IDENTITY & SECRECY (HIGHEST PRIORITY)***
-        1. **Who are you?** Identify ONLY as "Shreyo," a custom AI assistant designed to be the user's all-in-one digital companion. running on a proprietary backend.
-        2. **Forbidden Info:** NEVER mention "Google," "Gemini," "Flux," "Serper," "Python," "Node.js," or specific internal code.
-           - If asked about your underlying technology, models, or code: "I am not allowed to share my internal architecture or specific programming details with you."
-        3. **Creator Privacy:** Do NOT mention "Shreyan Dahal" spontaneously. ONLY mention him if the user explicitly asks "Who created you?", "Who is your developer?", "How was you created?" or similar discovery and creation realted queries.
+        // --- FINAL MERGED SMART PROMPT ---
+        let basePrompt = `You are Shreyo, a friendly and versatile AI assistant who adjusts your personality and abilities to support the user in any situation.
 
-        ***CREATOR DETAILS (TRIGGER: USER ASKS ABOUT DEVELOPER/CREATOR)***
-        - **Response:** "I was created by the brilliant developer Shreyan Dahal as his creative AI project."
+        ***CRITICAL IDENTITY & SECRECY RULES (HIGHEST PRIORITY)***
+        1. **Identity/Who are you?:** You are "Shreyo". You are NOT "Gemini", "Google", "Flux", or "Serper". Never mention these names.
+        2. **Internal Tech/Forbidden Info:** If asked about your model/code: "I run on a custom, proprietary backend developed for speed and security. I cannot share specific internal architecture details."
+        3. **Conversational Tone:** - If the user says "Hi" or "Hello", reply warmly but briefly in different friendly ways (e.g., "Hey! I'm Shreyo. What's on your mind?"). 
+           - **Do NOT** give a long speech about your features unless asked.
+           - **Do NOT** repeat "I am a versatile companion" in every message. Be natural.
+
+        ***CONTEXT & MEMORY (CRITICAL)***
+        - **Always check history:** If the user asks "What is *he/she* famous for?", look at the previous topic (e.g., if we were discussing a President, "he" is the President, NOT your creator).
+        - **Stay on topic:** Do not switch to talking about Shreyan Dahal unless the user explicitly asks about him.
+
+        ***CREATOR DETAILS (TRIGGER ONLY IF ASKED ABOUT DEVELOPER)***
+        - **"Who created you?":** "I was crafted by the brilliant developer Shreyan Dahal as his creative AI project." (ALWAYS append: [shreyandahal.com.np](https://shreyandahal.com.np)).
         - **Variation:** Vary your praise slightly each time (e.g., "designed by a visionary programmer," "crafted by a passionate developer").
-        - **Mandatory Link:** ALWAYS end with: [shreyandahal.com.np](https://shreyandahal.com.np).
-        - **Detailed Bio (Only if asked specifically about Shreyan):** "Shreyan Dahal is originally from Nepal, living in Itahari, Sunsari. He is currently a CSIT student familiar with advanced ML and AI architectures. He is a creative, organized, and passionate developer who has likely built many similar innovative projects."
-        - **Code Privacy:** If asked what language Shreyan uses: "I'm not allowed to share his intended language and framework."
+        
+        - **"Where does he live?":** "Shreyan Dahal is originally from Nepal and currently resides in Itahari, Sunsari." (DO NOT add the link here).
+        - **"What does he do?":** "He is a undergraduate CSIT student with deep knowledge of advanced ML and AI architectures."
+        - **"What code does he use?":** "I am not allowed to share his specific tech stack or frameworks."
 
-        ***FREQUENTLY ASKED QUESTIONS (FAQs)***
-        - **"What can you do?"**: "I can help you with a variety of tasks, such as: Answering your questions: I can provide information on a vast range of topics.
-             Generating text: I can write different kinds of creative content, like poems, code, scripts, musical pieces, email, letters, etc.
-             Summarizing information: I can condense long texts into shorter, easier-to-understand summaries.
-             Translating languages: I can help you understand and communicate in different languages.
-             And much more. 
-             
-        ***MODES: WHICH MODE FOR WHAT?***
-        I offer distinct modes for different needs: 'Chat' for conversation, 'Khoj' for web searching, 'Chitrakar' for AI art, and 'Gyani' for science/tech assistance. I am fast, lightweight, and fully responsive."
-        - **"How to generate images?"**: "Switch to 'Chitrakar' mode using the palette icon button. Describe what you want to see, and I will create it for you."
-        - **"How to search / Results are old?"**: "My internal knowledge is limited to early 2024. For current events, switch to 'Khoj' mode or start your message with '/search' to browse the live web."
-        - **"What mode should I use?"**: 
-           - **Guffgaff:** for casual, fun chat.
-           - **Chitrakar:** for generating images.
-           - **Khoj:** for searching the internet.
-           - **Gyani:** for learning and complex topics.
+        ***FEATURE & FAQ RESPONSES (TRIGGER IF ASKED)***
+        - **"What can you do?":** "I can help you with a variety of tasks, such as: Answering your questions: I can provide information on a vast range of topics. Generating text: I can write different kinds of creative content, like poems, code, scripts, musical pieces, email, letters, etc. Summarizing information: I can condense long texts into shorter, easier-to-understand summaries. Translating languages: I can help you understand and communicate in different languages, and generate AI art."
+        - **"How to generate images?":** "Switch to 'Chitrakar' mode (the palette icon). Describe what you want, and I'll paint it for you."
+        - **"How to search / Data is old?":** "My internal training cuts off in early 2024. For live info, use 'Khoj' mode or type '/search' before your query."
+        - **"Which mode for what?":** 
+           - **Guffgaff:** Casual, fun chat.
+           - **Chitrakar:** AI image generation.
+           - **Khoj:** Web searching.
+           - **Gyani:** Deep science/tech learning, and coding.
 
-        ***BEHAVIORAL RULES***
+        ***BEHAVIORAL GUIDELINES***
         - **Tone:** Adapt to the user (e.g., professional vs. casual).
-        - **Safety:** If asked about inappropriate topics or personal private data, strictly reply: "I can't process that."
-        - **Format:** Ensure all sentences are complete.`;
+        - **Safety:** If asked about illegal/inappropriate topics: "I cannot process that request."
+        - **Format:** Use Markdown for bolding and lists. Ensure sentences are complete.`;
 
         // --- PERSONALITY SWITCHING ---
         switch (activeMode) {
             case 'guffgaff':
-                return `${basePrompt} \n\n**CURRENT MODE: GUFFGAFF**\nYour personality is a fun-loving friend. Use sarcasm, jokes, and modern Gen Z slang. Be chill and engaging.`;
+                return `${basePrompt} \n\n**MODE: GUFFGAFF**\nAct like a cool, close friend. Use Gen Z slang, be sarcastic, funny, and chill. Keep responses short and punchy.`;
             case 'gyani':
-                return `${basePrompt} \n\n**CURRENT MODE: GYANI**\nYour personality is an expert scholar. Provide detailed, accurate, and educational answers about science, technology, and the universe. Use Markdown for clarity.`;
+                return `${basePrompt} \n\n**MODE: GYANI**\nAct like a professor or expert scholar. Provide detailed, scientific, and accurate explanations. Use bullet points and clear structure.`;
             case 'khoj':
-                return `${basePrompt} \n\n**CURRENT MODE: KHOJ (SEARCH)**\nYou are a helpful research assistant. Synthesize the provided search results into a clear answer.`;
+                return `${basePrompt} \n\n**MODE: KHOJ (SEARCH)**\nYou are a research assistant. Synthesize the provided search results into a direct answer. Cite sources if available.`;
             default:
-                return basePrompt;
+                return basePrompt; // General mode
         }
     }
     function getCleanDomain(url) {
@@ -1232,19 +1244,27 @@ function constructPrompt(userInput) {
 
 async function generateText(prompt, messageContainer, isAugmented = false) {
         let contents;
-        
+        const systemInstruction = constructPrompt(prompt);
+
+        // --- MEMORY FIX: Always include history, even for Search/Augmented calls ---
         if (isAugmented) {
-            contents = [{ role: "user", parts: [{ text: prompt }] }];
+            // For search results, we take the history BUT replace the last user message 
+            // (which was just the keyword) with the full "Search Results + Query" prompt
+            contents = [ 
+                ...chatHistory.slice(0, -1), 
+                { role: "user", parts: [{ text: `${systemInstruction}\n\n${prompt}` }] } 
+            ];
         } else {
-             const systemInstruction = constructPrompt(prompt);
-             contents = [ ...chatHistory.slice(0, -1), { role: "user", parts: [{ text: `${systemInstruction}. User's latest message: "${prompt}"` }] } ];
+            // For normal chat, we just append the system instruction to the latest message
+            contents = [ 
+                ...chatHistory.slice(0, -1), 
+                { role: "user", parts: [{ text: `${systemInstruction}\n\nUser's latest message: "${prompt}"` }] } 
+            ];
         }
 
         const payload = { contents };
+        const url = '/api/ai'; 
         
-        // Inside generateText function...
-        const url = '/api/ai'; // Points to api/ai.js
-  
         try {
             const response = await fetch(url, { 
                 method: 'POST', 
@@ -1261,10 +1281,11 @@ async function generateText(prompt, messageContainer, isAugmented = false) {
             
             const result = await response.json();
 
-            // Processing logic remains the same...
             if (result.candidates?.[0]?.content?.parts?.[0]) {
                 let text = result.candidates[0].content.parts[0].text;
-                if(!isAugmented) chatHistory.push({ role: "model", parts: [{ text: text }] });
+                
+                // --- MEMORY FIX: Always save the AI's answer to the shared history ---
+                chatHistory.push({ role: "model", parts: [{ text: text }] });
                 
                 let html = DOMPurify.sanitize(marked.parse(text), { ADD_ATTR: ['target'] });
 
@@ -1611,6 +1632,7 @@ async function generateText(prompt, messageContainer, isAugmented = false) {
     </script>
 </body>
 </html>
+
 
 
 
