@@ -986,18 +986,20 @@
     }
 
 
-    // Switches the active mode of the chatbot
+// Switches the active mode of the chatbot
     function switchMode(newMode, event) {
-        if (event) event.preventDefault();
+        if (event) event.preventDefault(); // Prevent default touch behaviors
         
         const wasChitrakar = activeMode === 'chitrakar';
         const isSameMode = activeMode === newMode;
         
         activeMode = isSameMode ? 'general' : newMode;
 
-        // --- MEMORY FIX: Removed "chatHistory = []" so memory persists across modes ---
+        // --- MEMORY FIX IS HERE ---
+        // We REMOVED the line: chatHistory = [];
+        // Now context is preserved when you switch modes!
         if (!isSameMode) {
-             chatInput.focus();
+            chatInput.focus(); 
         }
         
         isSearchActive = (activeMode === 'khoj');
@@ -1041,23 +1043,10 @@
         };
 
         chatInput.placeholder = placeholders[activeMode] || 'Start a conversation...';
-        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
-        updateSearchPill();
-    }
-        const placeholders = {
-            general: 'Start a conversation... type / for search',
-            guffgaff: 'Ready for some gossip?',
-            chitrakar: 'Describe the image to create...',
-            khoj: 'Searching the web...',
-            gyani: 'Ask a science or tech question...',
-        };
-
-        chatInput.placeholder = placeholders[activeMode] || 'Start a conversation...';
         
         chatInput.dispatchEvent(new Event('input', { bubbles: true }));
         updateSearchPill();
     }
-
     // Adds a new message to the chat area
     function addMessage(sender, content, isHtml = false) {
         const messageWrapper = document.createElement('div');
@@ -1158,29 +1147,35 @@
         return data.organic || [];
     }
 
-    // Handle the RAG (Retrieval-Augmented Generation) flow
-    async function performSearchAndGenerate(query, messageContainer) {
-        try {
-            messageContainer.innerHTML = '<span class="italic">Searching the web...</span>';
-            const searchResults = await performWebSearch(query);
+async function performSearchAndGenerate(query, messageContainer) {
+    try {
+        messageContainer.innerHTML = '<span class="italic">Searching the web...</span>';
+        const searchResults = await performWebSearch(query);
 
-            if (searchResults.length === 0) {
-                messageContainer.innerHTML = "I couldn't find any relevant information. I'll answer based on my existing knowledge.";
-                const fallbackMessageContainer = addMessage('shreyo', '<span class="italic">Shreyo is thinking...</span>', true);
-                await generateText(query, fallbackMessageContainer);
-                return;
-            }
-            
-            const formattedResults = searchResults.slice(0, 5).map(r => `Snippet: ${r.snippet}\nSource: ${r.link}`).join('\n\n');
-            const finalPrompt = `You are Shreyo, an AI assistant. Using ONLY the provided web search results below, answer the user's question concisely and accurately. Your primary goal is to synthesize the information from the snippets into a direct and well-formatted answer. Structure your response with the full text first, ensuring sentences are complete and correctly punctuated. After the main answer, list all sources under a "Sources:" heading. Each source URL must be on its own new line and should not contain any extra characters or punctuation. Do not mention your creator unless specifically asked about it.\n\n---BEGIN SEARCH RESULTS---\n${formattedResults}\n---END SEARCH RESULTS---\n\nUser's Question: "${query}"`;
-            
-            await generateText(finalPrompt, messageContainer, true);
-
-        } catch (error) {
-            console.error("Search and generation failed:", error);
-            messageContainer.innerHTML = 'Oops! Something went wrong. Please try again later.';
+        if (searchResults.length === 0) {
+            messageContainer.innerHTML = "I couldn't find relevant info. Answering from memory.";
+            await generateText(query, messageContainer);
+            return;
         }
+
+        const formattedResults = searchResults.slice(0, 5).map(r => `Snippet: ${r.snippet}\nSource: ${r.link}`).join('\n\n');
+        const finalPrompt = `Based on these search results, answer: "${query}"\n\nData:\n${formattedResults}`;
+
+        // --- FIX: Save the Search Context to Memory ---
+        chatHistory.push({ 
+            role: "user", 
+            parts: [{ text: `System Context: User searched for "${query}".\nResults: ${formattedResults}\n\nUser Question: ${query}` }] 
+        });
+
+        // We pass 'true' so generateText knows we just updated the history manually
+        await generateText(finalPrompt, messageContainer, true);
+
+    } catch (error) {
+        console.error("Search failed:", error);
+        messageContainer.innerHTML = 'Search unavailable. Trying normal chat...';
+        await generateText(query, messageContainer);
     }
+}
 
 function constructPrompt(userInput) {
         // --- FINAL MERGED SMART PROMPT ---
@@ -1242,25 +1237,28 @@ function constructPrompt(userInput) {
         }
     }
 
-async function generateText(prompt, messageContainer, isAugmented = false) {
+// FIX: Robust Memory Handling for Chat & Search
+    async function generateText(prompt, messageContainer, isAugmented = false) {
         let contents;
         const systemInstruction = constructPrompt(prompt);
 
-        // --- MEMORY FIX: Always include history, even for Search/Augmented calls ---
+        // --- MEMORY LOGIC ---
         if (isAugmented) {
-            // For search results, we take the history BUT replace the last user message 
-            // (which was just the keyword) with the full "Search Results + Query" prompt
-            contents = [ 
-                ...chatHistory.slice(0, -1), 
-                { role: "user", parts: [{ text: `${systemInstruction}\n\n${prompt}` }] } 
-            ];
-        } else {
-            // For normal chat, we just append the system instruction to the latest message
-            contents = [ 
-                ...chatHistory.slice(0, -1), 
-                { role: "user", parts: [{ text: `${systemInstruction}\n\nUser's latest message: "${prompt}"` }] } 
-            ];
-        }
+            // SEARCH MODE: The 'prompt' here is the Rich Context (Query + Search Results).
+            // We must manually save this to history now, because startGeneration didn't do it.
+            // This ensures Shreyo remembers the search results for the next turn.
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+        } 
+        // NORMAL MODE: startGeneration has ALREADY pushed the user's raw message to history.
+
+        // --- PAYLOAD CONSTRUCTION ---
+        // We take the entire history, remove the very last item (which is the raw User Message we just added),
+        // and replace it with a version that has the System Instructions attached to the front.
+        // This tricks the AI into following rules without cluttering the history array with duplicate system prompts.
+        contents = [ 
+            ...chatHistory.slice(0, -1), 
+            { role: "user", parts: [{ text: `${systemInstruction}\n\n${prompt}` }] } 
+        ];
 
         const payload = { contents };
         const url = '/api/ai'; 
@@ -1284,32 +1282,29 @@ async function generateText(prompt, messageContainer, isAugmented = false) {
             if (result.candidates?.[0]?.content?.parts?.[0]) {
                 let text = result.candidates[0].content.parts[0].text;
                 
-                // --- MEMORY FIX: Always save the AI's answer to the shared history ---
-                chatHistory.push({ role: "model", parts: [{ text: text }] });
+                // Save AI response to history so context is preserved
+                chatHistory.push({ role: "model", parts: [{ text: text }] }); 
                 
                 let html = DOMPurify.sanitize(marked.parse(text), { ADD_ATTR: ['target'] });
-
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
                 
+                // Link Cards Logic
                 doc.querySelectorAll('a').forEach(a => {
                     const href = a.getAttribute('href');
                     if (href) {
                         const cleanDomain = getCleanDomain(href);
-                        const genericIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0M2.04 4.326c.325 1.329 2.532 2.54 3.717 3.19.48.263.793.434.954.533a.56.56 0 0 0 .595 0c.16-.1.474-.27.954-.533 1.185-.65 3.392-1.86 3.717-3.19a5.98 5.98 0 0 1-.486-.244.77.77 0 0 0-.572-.244.77.77 0 0 0-.572.244l-.178.12a.56.56 0 0 1-.595 0l-.178-.12a.77.77 0 0 0-.572-.244.77.77 0 0 0-.572.244 5.98 5.98 0 0 1-.486.244ZM13.96 7.88c-.325-1.329-2.532-2.54-3.717-3.19-.48-.263-.793-.434-.954-.533a.56.56 0 0 0-.595 0c-.16.1-.474.27-.954.533-1.185.65-3.392 1.86-3.717 3.19a5.98 5.98 0 0 1 .486.244.77.77 0 0 0 .572.244.77.77 0 0 0 .572-.244l.178-.12a.56.56 0 0 1 .595 0l.178.12a.77.77 0 0 0 .572.244c.196 0 .384-.078.523-.218l.056.044a.77.77 0 0 0 .572.244 5.98 5.98 0 0 1 .486-.244Z"/></svg>`;
-                        const faviconUrl = `https://www.google.com/s2/favicons?domain=${getCleanDomain(href)}&sz=16`;
-                        
+                        const faviconUrl = `https://www.google.com/s2/favicons?domain=${cleanDomain}&sz=16`;
                         const card = document.createElement('a');
-                        card.href = href;
-                        card.target = '_blank';
-                        card.rel = 'noopener noreferrer';
-                        card.className = 'source-card';
-                        card.innerHTML = `<img src="${faviconUrl}" alt="" onerror="this.outerHTML='${genericIconSvg}'"><span>${cleanDomain}</span>`;
+                        card.href = href; card.target = '_blank'; card.rel = 'noopener noreferrer'; card.className = 'source-card';
+                        card.innerHTML = `<img src="${faviconUrl}" alt=""><span>${cleanDomain}</span>`;
                         a.replaceWith(card);
                     }
                 });
-                html = doc.body.innerHTML;
-
+                
+                messageContainer.innerHTML = doc.body.innerHTML;
+                
+                // Code Block Buttons
                 const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
                 if (text.match(codeBlockRegex)) {
                      messageContainer.innerHTML = text.split(codeBlockRegex).reduce((acc, part, index) => {
@@ -1320,18 +1315,17 @@ async function generateText(prompt, messageContainer, isAugmented = false) {
                         return acc + `<div class="code-block-container" data-code="${encodeURIComponent(code)}" data-lang="${lang}"><button class="view-code-btn" onclick="viewCode(this)">View Generated Code</button></div>`;
                     }, '');
                 } else {
-                     messageContainer.innerHTML = html;
+                     messageContainer.innerHTML = doc.body.innerHTML;
                 }
 
             } else {
-                throw new Error('No content in API response.');
+                throw new Error('No content.');
             }
         } catch (e) {
             console.error(e);
-            messageContainer.innerHTML = '<span class="text-red-500">Connection error. Please try again later.</span>';
+            messageContainer.innerHTML = '<span class="text-red-500">Connection error. Please try again.</span>';
         }
     }
-
     window.viewCode = function(button) {
         const container = button.parentElement;
         const code = decodeURIComponent(container.dataset.code);
@@ -1632,6 +1626,7 @@ async function generateText(prompt, messageContainer, isAugmented = false) {
     </script>
 </body>
 </html>
+
 
 
 
