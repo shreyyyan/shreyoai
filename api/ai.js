@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 
 export default async function handler(req, res) {
-  // 1. Allow CORS (Fixes strict-origin issues)
+  // 1. CORS Headers (Essential for browser access)
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   );
 
-  // Handle preflight request
+  // Handle browser "Preflight" checks
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -23,17 +23,16 @@ export default async function handler(req, res) {
 
   try {
     const { contents } = req.body;
-    
-    // Get API Key from Vercel Environment Variables
     const API_KEY = process.env.GEMINI_API_KEY;
 
     if (!API_KEY) {
-      console.error("GEMINI_API_KEY is missing.");
+      console.error("Server Error: GEMINI_API_KEY is missing.");
       return res.status(500).json({ error: "Server configuration error" });
     }
 
-    // Using Gemini 1.5 Flash
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+    // --- THE FIX IS HERE ---
+    // Using the active 'gemini-2.5-flash-lite' model
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}`;
 
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -43,15 +42,17 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
+    // Secure Error Handling
     if (!response.ok) {
-      console.error("Gemini API Error:", data);
-      return res.status(response.status).json(data);
+      console.error("Gemini API Error:", data); // Logs real error for you
+      return res.status(response.status).json({ error: "AI Service Unavailable" }); // Safe error for user
     }
 
+    // Success
     res.status(200).json(data);
 
   } catch (err) {
-    console.error("Server Error:", err);
-    res.status(500).json({ error: "Failed to connect to Gemini API" });
+    console.error("Backend Internal Error:", err);
+    res.status(500).json({ error: "Internal Connection Error" });
   }
 }
