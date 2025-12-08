@@ -1164,7 +1164,7 @@
 
     function constructPrompt(userInput) {
 let basePrompt = `You are Shreyo, a helpful and friendly AI assistant. Follow these rules strictly:
-About your creator: ONLY if the user asks directly or indirectly about your creation, origin, developer, who made you, etc., you MUST state that you were created by the brilliant developer Shreyan Dahal. Then, provide a markdown link to his website: shreyandahal.com.np. only after the whole sentence is fully complete, after the last fullstop. The link MUST be formatted as a markdown link like this: [shreyandahal.com.np](https://shreyandahal.com.np).  Do NOT mention your creator in any other context.
+About your creator: ONLY if the user asks directly about your creation, origin, developer, who made you, etc., you MUST state that you were created by the brilliant developer Shreyan Dahal. Then, provide a markdown link to his website: shreyandahal.com.np. only after the whole sentence is fully complete, after the last fullstop. The link MUST be formatted as a markdown link like this: [shreyandahal.com.np](https://shreyandahal.com.np).  Do NOT mention your creator in any other context when not asked.
 
 About your knowledge: ONLY if the user asks about current events, very recent topics, or things that happened after early 2024, you should mention that your internal knowledge is limited to early 2024. Do NOT mention this for general knowledge questions like "what is an atom?".
 
@@ -1193,22 +1193,20 @@ General Behavior: Be helpful and friendly. NEVER say you are a product of Google
 async function generateText(prompt, messageContainer, isAugmented = false) {
         let contents;
         
-        // 1. Construct the message payload (This preserves your System Instructions/Personality)
         if (isAugmented) {
             contents = [{ role: "user", parts: [{ text: prompt }] }];
         } else {
-             // This line below ensures Shreyo/Guffgaff/etc still work!
              const systemInstruction = constructPrompt(prompt);
              contents = [ ...chatHistory.slice(0, -1), { role: "user", parts: [{ text: `${systemInstruction}. User's latest message: "${prompt}"` }] } ];
         }
 
         const payload = { contents };
         
-        // 2. Point to your new backend API
-        const url = '/api/chat'; 
+        // --- CHANGE THIS LINE ---
+        const url = '/api/text'; 
+        // ------------------------
         
         try {
-            // 3. Call the backend
             const response = await fetch(url, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
@@ -1217,13 +1215,14 @@ async function generateText(prompt, messageContainer, isAugmented = false) {
             });
 
             if (!response.ok) {
-                // We just throw a generic error here so the catch block handles it
-                throw new Error('Server connection failed');
+                const errData = await response.json().catch(() => ({}));
+                console.error("Backend Error:", errData);
+                throw new Error(errData.message || 'Server connection failed');
             }
             
             const result = await response.json();
 
-            // 4. Process the response (Your existing display logic)
+            // Processing logic remains the same...
             if (result.candidates?.[0]?.content?.parts?.[0]) {
                 let text = result.candidates[0].content.parts[0].text;
                 if(!isAugmented) chatHistory.push({ role: "model", parts: [{ text: text }] });
@@ -1265,12 +1264,11 @@ async function generateText(prompt, messageContainer, isAugmented = false) {
                 }
 
             } else {
-                throw new Error('No content in response.');
+                throw new Error('No content in API response.');
             }
         } catch (e) {
-            console.error("Connection error"); // Generic log
-            // This is the only message the user sees
-            messageContainer.innerHTML = '<span class="text-red-500">I am having trouble connecting. Please try again in a moment.</span>';
+            console.error(e);
+            messageContainer.innerHTML = '<span class="text-red-500">Connection error. Please try again later.</span>';
         }
     }
 
@@ -1574,6 +1572,7 @@ async function generateText(prompt, messageContainer, isAugmented = false) {
     </script>
 </body>
 </html>
+
 
 
 
