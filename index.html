@@ -1190,24 +1190,40 @@ General Behavior: Be helpful and friendly. NEVER say you are a product of Google
         }
     }
 
-    async function generateText(prompt, messageContainer, isAugmented = false) {
+async function generateText(prompt, messageContainer, isAugmented = false) {
         let contents;
-        // For non-search, use chat history. For search, start fresh.
+        
+        // 1. Construct the message payload (This preserves your System Instructions/Personality)
         if (isAugmented) {
             contents = [{ role: "user", parts: [{ text: prompt }] }];
         } else {
+             // This line below ensures Shreyo/Guffgaff/etc still work!
              const systemInstruction = constructPrompt(prompt);
              contents = [ ...chatHistory.slice(0, -1), { role: "user", parts: [{ text: `${systemInstruction}. User's latest message: "${prompt}"` }] } ];
         }
 
         const payload = { contents };
-        const apiKey = "AIzaSyClrwYl3NbbLRHQpXCV-ly3ed-V6eOJRVc" // Environment managed
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        
+        // 2. Point to your new backend API
+        const url = '/api/chat'; 
         
         try {
-            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: abortController.signal });
-            if (!response.ok) throw new Error('API Error');
+            // 3. Call the backend
+            const response = await fetch(url, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(payload), 
+                signal: abortController.signal 
+            });
+
+            if (!response.ok) {
+                // We just throw a generic error here so the catch block handles it
+                throw new Error('Server connection failed');
+            }
+            
             const result = await response.json();
+
+            // 4. Process the response (Your existing display logic)
             if (result.candidates?.[0]?.content?.parts?.[0]) {
                 let text = result.candidates[0].content.parts[0].text;
                 if(!isAugmented) chatHistory.push({ role: "model", parts: [{ text: text }] });
@@ -1216,6 +1232,7 @@ General Behavior: Be helpful and friendly. NEVER say you are a product of Google
 
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
+                
                 doc.querySelectorAll('a').forEach(a => {
                     const href = a.getAttribute('href');
                     if (href) {
@@ -1248,11 +1265,12 @@ General Behavior: Be helpful and friendly. NEVER say you are a product of Google
                 }
 
             } else {
-                throw new Error('No content in API response.');
+                throw new Error('No content in response.');
             }
         } catch (e) {
-            console.error(e);
-            throw new Error('API Error');
+            console.error("Connection error"); // Generic log
+            // This is the only message the user sees
+            messageContainer.innerHTML = '<span class="text-red-500">I am having trouble connecting. Please try again in a moment.</span>';
         }
     }
 
@@ -1556,6 +1574,7 @@ General Behavior: Be helpful and friendly. NEVER say you are a product of Google
     </script>
 </body>
 </html>
+
 
 
 
