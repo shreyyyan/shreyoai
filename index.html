@@ -1202,10 +1202,9 @@ async function generateText(prompt, messageContainer, isAugmented = false) {
 
         const payload = { contents };
         
-        // --- CHANGE THIS LINE ---
-        const url = '/api/text'; 
-        // ------------------------
-        
+        // Inside generateText function...
+        const url = '/api/ai'; // Points to api/ai.js
+  
         try {
             const response = await fetch(url, { 
                 method: 'POST', 
@@ -1572,6 +1571,7 @@ async function generateText(prompt, messageContainer, isAugmented = false) {
     </script>
 </body>
 </html>
+
 
 
 
